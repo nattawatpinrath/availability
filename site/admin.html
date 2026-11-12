@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Link manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=17">
+<style>
+  h2 { font-size: 1.05rem; margin: 0 0 12px; font-weight: 600; }
+  label.f { display: grid; gap: 4px; font-size: .88rem; color: var(--muted); margin-bottom: 12px; }
+  input[type=text], input[type=password], input[type=date] { font: inherit; color: var(--ink); background: var(--bg);
+       border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; width: 100%; }
+  .row2 { display: flex; gap: 8px; }
+  .row2 input { flex: 1; min-width: 0; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.primary:hover:not(:disabled) { color: var(--accent-ink); filter: brightness(1.05); }
+  .btn.danger:hover:not(:disabled) { border-color: #c0392b; color: #c0392b; }
+  .btn.sm { padding: 4px 11px; font-size: .85rem; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .opts button { border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: .9rem;
+                 padding: 6px 13px; border-radius: 999px; cursor: pointer; }
+  .opts button[aria-pressed="true"] { background: var(--ink); color: var(--card); border-color: var(--ink); }
+  .result { margin-top: 16px; padding: 16px; border-radius: 12px; background: var(--accent-soft); display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+  .result .url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; word-break: break-all;
+                 background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+  .qr svg { width: 132px; height: 132px; display: block; background: #fff; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; padding: 0 8px 8px 0; }
+  td { padding: 10px 8px 10px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+  td.acts { text-align: right; white-space: nowrap; }
+  td.acts .btn { margin-left: 4px; }
+  .status { font-size: .88rem; margin: 10px 0 0; }
+  .status.err { color: #c0392b; }
+  .status.ok { color: var(--free-ink); }
+  details summary { cursor: pointer; font-weight: 600; }
+  .help { font-size: .85rem; color: var(--muted); margin: 0 0 12px; }
+
+  /* printable sign */
+  #sign { display: none; }
+  @media print {
+    body { background: #fff; }
+    main, .toast { display: none !important; }
+    #sign { display: flex !important; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+            min-height: 95vh; color: #000; font-family: "IBM Plex Sans", "IBM Plex Sans Thai", sans-serif; }
+    #sign h1 { font-size: 34pt; margin: 0 0 6pt; }
+    #sign .sub { font-size: 16pt; margin: 0 0 24pt; }
+    #sign .qr svg { width: 9cm; height: 9cm; }
+    #sign .valid { font-size: 12pt; margin-top: 18pt; color: #444; }
+  }
+  .unlock { max-width: 420px; margin: 40px auto 0; text-align: center; }
+  .unlock > svg { width: 36px; height: 36px; color: var(--muted); }
+  .unlock h2 { margin: 8px 0 16px; }
+  .unlock .row2 input { font-size: 1rem; }
+  .unlock .help { margin-top: 18px; }
+  .unlock .help a { color: var(--muted); }
+  .resbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+  @media (pointer: coarse), (max-width: 1024px) {
+    .btn.sm { min-height: 44px; padding: 8px 14px; font-size: .9rem; }
+    .opts button { min-height: 44px; padding: 8px 15px; }
+    input[type=text], input[type=password], input[type=date] { min-height: 44px; font-size: 16px; }
+  }
+  @media (max-width: 560px) {
+    #topActions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 8px; }
+    #topActions .btn { justify-content: center; white-space: nowrap; }
+    #generate, #saveSetup { width: 100%; justify-content: center; }
+    .resbtns .btn { flex: 1; justify-content: center; }
+    .qr svg { width: 180px; height: 180px; margin: 0 auto; }
+    /* link table becomes a list of cards */
+    table, tbody, tr, td { display: block; }
+    thead { display: none; }
+    tr { border-top: 1px solid var(--line); padding: 12px 0; }
+    td { border: 0; padding: 2px 0; }
+    td:first-child { font-weight: 600; }
+    td:nth-child(2)::before { content: "Valid until "; color: var(--muted); }
+    td.acts { display: flex; gap: 8px; margin-top: 8px; text-align: left; }
+    td.acts .btn { margin: 0; flex: 1; justify-content: center; }
+    .result { grid-template-columns: 1fr; }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Link manager</h1>
+      <p>Make temporary links to your availability page</p>
+    </div>
+    <div class="refresh" id="topActions" hidden>
+      <a class="btn" href="./" id="viewLink" title="Opens your page with your longest-running active link">Preview my page</a>
+      <button type="button" class="btn" id="syncNow">Sync calendar now</button>
+      <button type="button" class="btn" id="openSettings">Settings</button>
+      <button type="button" class="btn" id="lockNow">Lock</button>
+    </div>
+  </header>
+
+  <!-- password screen -->
+  <section class="card unlock" id="unlockCard" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
+    <h2>Admin password</h2>
+    <form id="unlockForm" class="row2">
+      <input type="password" id="pw" autocomplete="current-password" placeholder="Password" required>
+      <button type="submit" class="btn primary">Unlock</button>
+    </form>
+    <p class="status" id="unlockStatus"></p>
+    <p class="help"><a href="./">← Back to availability</a></p>
+  </section>
+
+  <!-- first-time setup, and "Settings" later -->
+  <section class="card" id="setupCard" hidden>
+    <h2 id="setupTitle">First-time setup</h2>
+    <p class="help">These are locked with your admin password and saved in the site, so you can sign in from any device with just the password.</p>
+    <label class="f">GitHub repository (owner/name)
+      <input type="text" id="repo" placeholder="your-username/availability" autocomplete="off">
+    </label>
+    <label class="f">GitHub token (fine-grained, this repository only: Contents + Actions read &amp; write)
+      <input type="password" id="token" autocomplete="off">
+    </label>
+    <label class="f">Link secret (must match the LINK_SECRET GitHub Secret)
+      <span class="row2"><input type="password" id="secret" autocomplete="off">
+      <button type="button" class="btn sm" id="newSecret">New</button>
+      <button type="button" class="btn sm" id="copySecret">Copy</button></span>
+    </label>
+    <label class="f">Admin password (at least 10 characters; use a strong one)
+      <input type="password" id="newPw" autocomplete="new-password">
+    </label>
+    <label class="f">Type it again
+      <input type="password" id="newPw2" autocomplete="new-password">
+    </label>
+    <button type="button" class="btn primary" id="saveSetup">Save</button>
+    <button type="button" class="btn" id="cancelSetup" hidden>Cancel</button>
+    <p class="status" id="setupStatus"></p>
+  </section>
+
+  <div id="appCards" hidden>
+  <section class="card">
+    <h2>New link</h2>
+    <div class="opts" id="durations"></div>
+    <label class="f" id="customWrap" hidden>Valid until (end of day, Bangkok time)
+      <input type="date" id="customDate">
+    </label>
+    <label class="f">Who is it for? (optional, stored encrypted)
+      <input type="text" id="label" placeholder="e.g. Thesis students, Prof. A, Door sign">
+    </label>
+    <button type="button" class="btn primary" id="generate">Generate link</button>
+    <p class="status" id="genStatus"></p>
+    <div class="result" id="result" hidden>
+      <div>
+        <b id="resWhen"></b>
+        <div class="url" id="resUrl"></div>
+        <div class="resbtns">
+          <button type="button" class="btn sm" id="resCopy">Copy link</button>
+          <button type="button" class="btn sm" id="resPrint">Print QR sign</button>
+        </div>
+      </div>
+      <div class="qr" id="resQr"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Active links</h2>
+    <p class="help" id="listHelp"></p>
+    <table>
+      <thead><tr><th>For</th><th>Valid until</th><th class="hide-sm">Left</th><th></th></tr></thead>
+      <tbody id="list"></tbody>
+    </table>
+  </section>
+  </div>
+</main>
+
+<div id="sign">
+  <h1 id="signName"></h1>
+  <p class="sub">Scan to see my free times · สแกนเพื่อดูเวลาว่าง</p>
+  <div class="qr" id="signQr"></div>
+  <p class="valid" id="signValid"></p>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="config.js?v=17"></script>
+<script src="admin.js?v=17"></script>
+</body>
+</html>
