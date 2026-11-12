@@ -21,6 +21,7 @@
       request: "Request by email", copyWeek: "Copy link to this week", copied: "Link copied",
       validUntil: (d) => `This link works until ${d}.`,
       lockedTitle: "Link needed", lockedText: "To see my free times, please open the link I sent you.",
+      waitTitle: "Getting this link ready…", waitText: "New links take 1–2 minutes to start working. This page will open by itself, so please keep it open.",
       goneTitle: "This link is no longer active", goneText: "It has expired or was cancelled. Please ask me for a new link.",
       badTitle: "This link doesn't work", badText: "It may have been copied incompletely. Please ask me for a new link.",
       loadError: "Could not load. Try again.",
@@ -45,6 +46,7 @@
       request: "ขอนัดทางอีเมล", copyWeek: "คัดลอกลิงก์สัปดาห์นี้", copied: "คัดลอกลิงก์แล้ว",
       validUntil: (d) => `ลิงก์นี้ใช้ได้ถึง ${d}`,
       lockedTitle: "ต้องใช้ลิงก์", lockedText: "กรุณาเปิดจากลิงก์ที่ได้รับเพื่อดูเวลาว่าง",
+      waitTitle: "กำลังเตรียมลิงก์…", waitText: "ลิงก์ใหม่ใช้เวลา 1–2 นาทีจึงจะเปิดได้ หน้านี้จะเปิดให้เองอัตโนมัติ กรุณาเปิดค้างไว้",
       goneTitle: "ลิงก์นี้หมดอายุแล้ว", goneText: "ลิงก์หมดอายุหรือถูกยกเลิก กรุณาขอลิงก์ใหม่",
       badTitle: "ลิงก์ไม่ถูกต้อง", badText: "อาจคัดลอกลิงก์มาไม่ครบ กรุณาขอลิงก์ใหม่",
       loadError: "โหลดไม่สำเร็จ ลองใหม่อีกครั้ง",
@@ -356,7 +358,16 @@
     btn.disabled = true; btn.classList.add("spin");
     try {
       const r = await fetch(`d/${tok[1]}.bin?t=${Date.now()}`, { cache: "no-store" });
-      if (r.status === 404) return showLocked("gone");
+      if (r.status === 404) {
+        // A brand-new link takes 1–2 minutes to be published, so keep checking for ~3 minutes
+        // before calling it expired. (Once the page has loaded, a 404 means it was revoked/expired.)
+        if (!state.loaded && (load.tries = (load.tries || 0) + 1) <= 9) {
+          showLocked("wait");
+          setTimeout(load, 20000);
+          return;
+        }
+        return showLocked("gone");
+      }
       if (!r.ok) throw new Error("HTTP " + r.status);
       const buf = new Uint8Array(await r.arrayBuffer());
       let payload;
@@ -372,6 +383,7 @@
       state.busy = payload.busy.map(([s, e]) => [Date.parse(s), Date.parse(e)]);
       state.dataTo = Date.parse(payload.to);
       state.lastLoad = Date.now();
+      state.lockedKind = null;
       $("locked").hidden = true;
       $("app").hidden = false;
       btn.hidden = false;
