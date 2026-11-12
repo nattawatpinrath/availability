@@ -90,11 +90,12 @@ def main() -> int:
     start = datetime.combine(today, time.min, tzinfo=LOCAL_TZ)
     end = start + timedelta(days=DAYS_AHEAD + 1)
 
-    ranges = []
+    ranges, failed = [], 0
     for i, src in enumerate(sources, 1):
         try:
             cal = icalendar.Calendar.from_ical(load(src))
         except Exception as exc:  # never print the URL: it is a secret
+            failed += 1
             code = getattr(exc, "code", None)
             hint = {404: "link not found: use the *secret* iCal address (ends with basic.ics)",
                     401: "not allowed: use the *secret* iCal address",
@@ -102,10 +103,12 @@ def main() -> int:
             # "::error::" makes GitHub show this line in the run summary (Annotations)
             print(f"::error::ICS_URLS line {i} of {len(sources)}: could not read "
                   f"({type(exc).__name__}{' ' + str(code) if code else ''}) - {hint}")
-            return 1
+            continue
         found = list(busy_ranges(cal, start, end))
-        print(f"calendar #{i}: {len(found)} busy events")
+        print(f"::notice::ICS_URLS line {i} of {len(sources)}: OK, {len(found)} busy events")
         ranges.extend(found)
+    if failed:  # check every line first so all problems show at once; never publish partial data
+        return 1
 
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     data = {
