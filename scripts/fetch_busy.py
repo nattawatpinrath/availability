@@ -83,7 +83,7 @@ def merge(ranges):
 def main() -> int:
     sources = os.environ.get("ICS_URLS", "").split()
     if not sources:
-        print("ICS_URLS is empty: set it to your calendar's secret .ics address", file=sys.stderr)
+        print("::error::ICS_URLS secret is empty or missing: add it under Settings > Secrets and variables > Actions")
         return 1
 
     today = datetime.now(LOCAL_TZ).date()
@@ -95,7 +95,13 @@ def main() -> int:
         try:
             cal = icalendar.Calendar.from_ical(load(src))
         except Exception as exc:  # never print the URL: it is a secret
-            print(f"calendar #{i}: could not read ({type(exc).__name__})", file=sys.stderr)
+            code = getattr(exc, "code", None)
+            hint = {404: "link not found: use the *secret* iCal address (ends with basic.ics)",
+                    401: "not allowed: use the *secret* iCal address",
+                    403: "not allowed: use the *secret* iCal address"}.get(code, "check the link is copied completely, one per line")
+            # "::error::" makes GitHub show this line in the run summary (Annotations)
+            print(f"::error::ICS_URLS line {i} of {len(sources)}: could not read "
+                  f"({type(exc).__name__}{' ' + str(code) if code else ''}) - {hint}")
             return 1
         found = list(busy_ranges(cal, start, end))
         print(f"calendar #{i}: {len(found)} busy events")
