@@ -3,6 +3,7 @@
     --accent: #d9661f; --accent-ink: #ffffff; --accent-soft: #fbeadf;
     --free: #e3f2e6; --free-ink: #1f6b33; --free-line: #b9dcc1;
     --busy: #efedea; --busy-ink: #a9a7a1;
+    --away: #e8edf7; --away-ink: #4a5f8a; --away-line: #c9d4ea;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -10,6 +11,7 @@
       --accent: #f08a45; --accent-ink: #1a1007; --accent-soft: #3a2618;
       --free: #1d3324; --free-ink: #8fd6a2; --free-line: #2f5a3b;
       --busy: #1b1a18; --busy-ink: #5d5b56;
+      --away: #1c2230; --away-ink: #9fb2d9; --away-line: #2f3a52;
     }
   }
   * { box-sizing: border-box; }
@@ -102,6 +104,7 @@
   .blk.free { background: var(--free); color: var(--free-ink); border: 1px solid var(--free-line); font-weight: 500; }
   .blk.busy { background: var(--busy); color: var(--busy-ink);
               background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--busy-ink) 14%, transparent) 6px 7px); }
+  .blk.away { background: var(--away); color: var(--away-ink); border: 1px dashed var(--away-line); font-weight: 500; }
   .blk.off, .blk.past, .blk.na { color: var(--busy-ink);
               background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--line) 80%, transparent) 5px 6px); }
 
@@ -109,6 +112,9 @@
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--line); }
   .lg-free { background: var(--free); border-color: var(--free-line) !important; }
   .lg-busy { background: var(--busy); }
+  .lg-away { background: var(--away); border: 1px dashed var(--away-line) !important; }
+  .none.away { color: var(--away-ink); font-weight: 500; }
+  .p-day i.away { background: var(--away-ink); }
   .lg-off { background: repeating-linear-gradient(135deg, transparent 0 3px, var(--line) 3px 4px); }
   .foot { margin: 14px 0 0; }
 

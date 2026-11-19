@@ -16,7 +16,7 @@
       nextAvailable: "Next available", noneAhead: (n) => `None in the next ${n} days`,
       weekTotal: (n) => (n ? `${n} free hour${n === 1 ? "" : "s"} in total` : "No free time in this week"),
       past: "Past", notOpen: "Not open yet", fullyBooked: "Fully booked", hasFree: "Has free time",
-      busy: "Busy", lunch: "Lunch", legendFree: "Free · click to request", legendOff: "Lunch / past",
+      busy: "Busy", away: "Off campus", lunch: "Lunch", legendFree: "Free · click to request", legendOff: "Lunch / past",
       foot: "Free times update automatically. Please contact me to confirm a time.",
       request: "Request by email", copyWeek: "Copy link to this week", copied: "Link copied",
       validUntil: (d) => `This link works until ${d}.`,
@@ -27,7 +27,7 @@
       loadError: "Could not load. Try again.",
       mailSubject: (w) => `Meeting request: ${w}`,
       mailBody: (w, name) => `Dear ${name},\n\nI would like to request a meeting on ${w} (Bangkok time).\n\nMy name:\nTopic:\n\nThank you.`,
-      dayFree: (d, n) => `${d}: ${n} h free`, dayFull: (d) => `${d}: fully booked`,
+      dayFree: (d, n) => `${d}: ${n} h free`, dayFull: (d) => `${d}: fully booked`, dayAway: (d) => `${d}: off campus`,
     },
     th: {
       days: ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."],
@@ -41,7 +41,7 @@
       nextAvailable: "ว่างครั้งถัดไป", noneAhead: (n) => `ไม่มีเวลาว่างใน ${n} วันข้างหน้า`,
       weekTotal: (n) => (n ? `รวมว่าง ${n} ชั่วโมง` : "ไม่มีเวลาว่างในสัปดาห์นี้"),
       past: "ผ่านไปแล้ว", notOpen: "ยังไม่เปิด", fullyBooked: "ไม่ว่างทั้งวัน", hasFree: "มีเวลาว่าง",
-      busy: "ไม่ว่าง", lunch: "พักกลางวัน", legendFree: "ว่าง · คลิกเพื่อขอนัด", legendOff: "พัก / ผ่านไปแล้ว",
+      busy: "ไม่ว่าง", away: "ไม่อยู่ มทส.", lunch: "พักกลางวัน", legendFree: "ว่าง · คลิกเพื่อขอนัด", legendOff: "พัก / ผ่านไปแล้ว",
       foot: "เวลาว่างอัปเดตอัตโนมัติ กรุณาติดต่อเพื่อยืนยันเวลาก่อน",
       request: "ขอนัดทางอีเมล", copyWeek: "คัดลอกลิงก์สัปดาห์นี้", copied: "คัดลอกลิงก์แล้ว",
       validUntil: (d) => `ลิงก์นี้ใช้ได้ถึง ${d}`,
@@ -52,7 +52,7 @@
       loadError: "โหลดไม่สำเร็จ ลองใหม่อีกครั้ง",
       mailSubject: (w) => `ขอนัดหมาย: ${w}`,
       mailBody: (w, name) => `เรียน คุณ${name}\n\nขอนัดหมาย${w}\n\nชื่อผู้ขอนัด:\nเรื่อง:\n\nขอบคุณครับ/ค่ะ`,
-      dayFree: (d, n) => `${d}: ว่าง ${n} ชม.`, dayFull: (d) => `${d}: ไม่ว่าง`,
+      dayFree: (d, n) => `${d}: ว่าง ${n} ชม.`, dayFull: (d) => `${d}: ไม่ว่าง`, dayAway: (d) => `${d}: ไม่อยู่ มทส.`,
     },
   };
   let lang = (() => { try { return localStorage.getItem("lang"); } catch (e) { return null; } })();
@@ -81,7 +81,7 @@
   const ROWS = Math.ceil((DAY_END - DAY_START) / STEP);
   const COLS = [1, 2, 3, 4, 5, 6, 0].filter((d) => C.workDays.includes(d)); // Monday first
 
-  const state = { week: 0, weeks: 1, busy: [], dataTo: 0, loaded: false, sel: null, payload: null, lastLoad: 0 };
+  const state = { week: 0, weeks: 1, busy: [], away: new Set(), dataTo: 0, loaded: false, sel: null, payload: null, lastLoad: 0 };
 
   let todayL, monday0, lastDay;
   function setToday() {
@@ -95,8 +95,10 @@
   const weekDays = (w) => COLS.map((wd) => new Date(monday0.getTime() + (w * 7 + (wd + 6) % 7) * DAY_MS));
 
   // ---------- free / busy per hour ----------
+  const isAway = (dayL) => state.away.has(ymd(dayL));
   function cellsForDay(dayL) {
     const now = Date.now();
+    const away = isAway(dayL);
     const cells = [];
     for (let r = 0; r < ROWS; r++) {
       const mins = DAY_START + r * STEP;
@@ -105,6 +107,7 @@
       if (!BLOCKS.some(([a, b]) => mins >= a && mins + STEP <= b)) kind = "off";
       else if (s < now) kind = "past";
       else if (dayL > lastDay || e > state.dataTo) kind = "na";
+      else if (away) kind = "away"; // off campus: the whole day, not only the event
       else if (state.busy.some(([bs, be]) => s < be && e > bs)) kind = "busy";
       else kind = "free";
       cells.push({ r, mins, kind });
@@ -161,8 +164,9 @@
       }
       if (!fr.length) {
         const kinds = cellsForDay(dayL).map((c) => c.kind).filter((k) => k !== "off");
-        const why = kinds.every((k) => k === "past") ? t().past : kinds.every((k) => k === "na") ? t().notOpen : t().fullyBooked;
-        chips.append(el("span", "none", why));
+        const why = kinds.every((k) => k === "past") ? t().past : kinds.every((k) => k === "na") ? t().notOpen
+          : kinds.includes("away") ? t().away : t().fullyBooked;
+        chips.append(el("span", "none" + (why === t().away ? " away" : ""), why));
       }
       li.append(chips);
       list.append(li);
@@ -200,7 +204,7 @@
       for (const c of cells) place(el("div", "c-line"), col, c.r + 2);
       for (const run of runs(cells)) {
         const end = run.mins + run.len * STEP;
-        const label = { free: `${hm(run.mins)}–${hm(end)}`, busy: t().busy, off: t().lunch, past: "", na: "" }[run.kind];
+        const label = { free: `${hm(run.mins)}–${hm(end)}`, busy: t().busy, away: t().away, off: t().lunch, past: "", na: "" }[run.kind];
         const b = place(el("div", "blk " + run.kind, label), col, run.r + 2, run.len);
         if (run.kind === "free") {
           b.setAttribute("role", "button");
@@ -259,8 +263,9 @@
         cell.append(el("span", null, d.getUTCDate()));
         if (inRange && C.workDays.includes(d.getUTCDay()) && d >= todayL && d <= lastDay) {
           const hrs = hoursOf(freeRuns(d));
-          if (hrs || d > todayL) cell.append(el("i", hrs ? "free" : "full"));
-          cell.title = hrs ? t().dayFree(dayName(d), hrs) : t().dayFull(dayName(d));
+          const away = isAway(d);
+          if (hrs || d > todayL || away) cell.append(el("i", hrs ? "free" : away ? "away" : "full"));
+          cell.title = hrs ? t().dayFree(dayName(d), hrs) : away ? t().dayAway(dayName(d)) : t().dayFull(dayName(d));
         }
         r.append(cell);
       }
@@ -381,6 +386,7 @@
       if (Date.parse(payload.expires) <= Date.now()) return showLocked("gone");
       state.payload = payload;
       state.busy = payload.busy.map(([s, e]) => [Date.parse(s), Date.parse(e)]);
+      state.away = new Set(payload.away || []);
       state.dataTo = Date.parse(payload.to);
       state.lastLoad = Date.now();
       state.lockedKind = null;
